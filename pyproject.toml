@@ -1,9 +1,11 @@
 [tool.poetry]
-name = "FuzzyTableExtractor"
+name = "fuzzy-table-extractor"
 version = "0.1.0"
 description = "A tool to extract tables from documents using fuzzy matching"
 authors = ["Leonardo Sirino <leonardosirino@outlook.com>"]
+readme = "README.md"
 license = "MIT"
+packages = [{include = "fuzzy_table_extractor"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
