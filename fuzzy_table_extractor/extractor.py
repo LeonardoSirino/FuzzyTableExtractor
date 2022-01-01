@@ -1,15 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from pprint import pprint
-from typing import List
+from typing import Callable, List
 
 import numpy as np
 import pandas as pd
 
-from ..Util.constants import MIN_HEADER_RATIO, VERBOSE
-from ..Util.functions import (extract_datetime, format_sku, match_regex_list,
-                              str_comparison)
 from .doc_handlers import BaseHandler
+from .util import match_regex_list, str_comparison
 
 
 @dataclass
@@ -24,10 +21,6 @@ class FieldOrientation(Enum):
     COLUMN = auto()
 
 
-def sample_validation_function(header: List[str]) -> bool:
-    return True
-
-
 class Extractor:
     def __init__(self, doc_handler: BaseHandler = None) -> None:
         self.doc_handler = doc_handler
@@ -35,18 +28,23 @@ class Extractor:
     def extract_closest_table(
         self,
         search_headers: List[str],
-        tables: List[pd.DataFrame],
-        validation_funtion=sample_validation_function,
+        validation_funtion: Callable[[List[str]], bool] = lambda x: True,
+        minimum_proximity_ratio: float = 0,
     ) -> pd.DataFrame:
         """Extract the table in document that has the closest header to search_headers
 
         Args:
             search_headers (List[str]): list of itens to search in header
-            tables (List[pd.DataFrame]): list of dataframes in document
+            validation_funtion (Callable[[List[str]], bool], optional): function to validate if the table is valid. This function receives the table header as argument and must return True if the table is valid. Defaults to lambda x: True.
+            minimum_proximity_ratio (float, optional): minimum proximity ratio to consider there is a match in header. Value must be between 0 and 100 .Defaults to 0.
 
         Returns:
             pd.DataFrame: best match
         """
+        if minimum_proximity_ratio < 0 or minimum_proximity_ratio > 100:
+            raise ValueError("minimum_proximity_ratio must be between 0 and 100")
+
+        tables = self.doc_handler.tables
         ratios = []
         for df in tables:
             if validation_funtion(df.columns.to_list()):
@@ -62,24 +60,12 @@ class Extractor:
             return None
 
         best_ratio = np.max(ratios)
-        if best_ratio < MIN_HEADER_RATIO:
+        if best_ratio < minimum_proximity_ratio:
             return None
 
         best_match = tables[np.argmax(ratios)]
 
-        association = self.headers_association(
-            best_match.columns.to_list(), search_headers
-        )
-
-        if VERBOSE:
-            pprint(association)
-            print(best_ratio)
-
-        original = [x.original_term for x in association]
-        df = best_match[original]
-
-        rename_columns = {x.original_term: x.search_term for x in association}
-        df.rename(columns=rename_columns, inplace=True)
+        df = self.get_columns_fuzzy(best_match, search_headers)
 
         return df
 
@@ -104,7 +90,7 @@ class Extractor:
         Returns:
             str: best match
         """
-        df = self.word_file.dictionary
+        df = self.doc_handler.dictionary
 
         df = df[df["orientation"] == orientation.name.lower()]
         df = df[df["content"].apply(lambda x: match_regex_list(x, regex))]
