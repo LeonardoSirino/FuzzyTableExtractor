@@ -7,12 +7,11 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logging.log(logging.INFO, "Starting test")
 
-file_path = Path("sample_docs\sample_01.docx")
+path = r"sample_docs\E004 - splited tables.docx"
+
+file_path = Path(path)
 handler = DocxHandler(file_path)
 
 extractor = Extractor(handler)
-df = extractor.extract_closest_table(["ids", "name", "age"])
+df = extractor.extract_closest_table(["id", "name", "age"])
 print(df)
-
-johns_age = extractor.extract_single_field("John", FieldOrientation.ROW)
-print(f"Johns age: {johns_age}")

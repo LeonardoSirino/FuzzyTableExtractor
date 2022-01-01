@@ -275,13 +275,14 @@ class DocxHandler(BaseHandler):
         header_df = pd.DataFrame(headers, columns=["headers"])
         header_groups = header_df.groupby(by="headers")
 
-        aux = []
-        for header, df in header_groups:
+        merged_dfs = []
+        for _, df in header_groups:
             index = df.index.tolist()
 
             group = [dfs[i] for i in index]
             merged = pd.concat(group)
             merged.drop_duplicates(inplace=True)
-            aux.append(merged)
+            merged.reset_index(drop=True, inplace=True)
+            merged_dfs.append(merged)
 
-        return aux
+        return merged_dfs
