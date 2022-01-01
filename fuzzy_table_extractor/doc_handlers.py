@@ -223,7 +223,7 @@ class DocxHandler(BaseHandler):
         """Open document and creates a docx file if necessary
 
         Returns:
-            Document: word document object
+            - Document: word document object
         """
         folder, file_name = os.path.split(self.__file_path)
         self.file_name = self.__file_path.stem
@@ -266,10 +266,10 @@ class DocxHandler(BaseHandler):
         """Merge dataframes that has the same header and drop duplicated lines
 
         Args:
-            dfs (List[pd.DataFrame]): list of dataframes from doc extraction
+            - dfs (List[pd.DataFrame]): list of dataframes from doc extraction
 
         Returns:
-            List[pd.DataFrame]: list of merged dataframes
+            - List[pd.DataFrame]: list of merged dataframes
         """
         headers = ["&".join(df.columns.tolist()) for df in dfs]
         header_df = pd.DataFrame(headers, columns=["headers"])
