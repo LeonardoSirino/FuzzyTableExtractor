@@ -27,7 +27,7 @@ print(df)
 ```
 For a document that looks like this:
 
-![some image](assets\basic_document.png)
+![some image](https://github.com/LeonardoSirino/FuzzyTableExtractor/blob/main/assets/basic_document.png?raw=true)
 
 The ouput is:
 ```
