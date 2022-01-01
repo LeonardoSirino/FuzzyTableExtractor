@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fuzzy-table-extractor"
-version = "0.1.0"
+version = "0.1.1"
 description = "A tool to extract tables from documents using fuzzy matching"
 authors = ["Leonardo Sirino <leonardosirino@outlook.com>"]
 readme = "README.md"

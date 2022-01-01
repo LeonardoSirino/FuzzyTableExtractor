@@ -43,7 +43,7 @@ The output is:
 1  1  John  32
 ```
 
-Due to the fuzzy match used to select the closest table, this library is resilient to typos. As an example, using the same code above, but now for a document like this:
+Due to the fuzzy match used to select the closest table, even though the search headers do not exactly match a table header in the document, the extraction will return the right table if this is the closest to the search, which also makes the extraction resilient to typos. As an example, using the same code above, but now for a document like this:
 
 ![Typos in document](https://github.com/LeonardoSirino/FuzzyTableExtractor/blob/main/assets/typos_in_document.png?raw=true)
 The output is:
