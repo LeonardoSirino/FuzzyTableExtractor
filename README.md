@@ -45,7 +45,7 @@ The output is:
 
 Due to the fuzzy match used to select the closest table, this library is resilient to typos. As an example, using the same code above, but now for a document like this:
 
-![Typos in document](assets\typos_in_document.png)
+![Typos in document](https://github.com/LeonardoSirino/FuzzyTableExtractor/blob/main/assets/typos_in_document.png?raw=true)
 The output is:
 ```
   id  name age
@@ -73,7 +73,7 @@ print(area)
 ```
 
 For a document like this:
-![Extracting single field](assets\extract_single_field.png)
+![Extracting single field](https://github.com/LeonardoSirino/FuzzyTableExtractor/blob/main/assets/extract_single_field.png?raw=true)
 
 The output is:
 ```
