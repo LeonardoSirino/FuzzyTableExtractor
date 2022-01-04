@@ -15,7 +15,6 @@ python-docx = "^0.8.11"
 pywin32 = "^303"
 fuzzywuzzy = "^0.18.0"
 Unidecode = "^1.3.2"
-python-Levenshtein = "^0.12.2"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.12b0", allow-prereleases = true}
