@@ -34,7 +34,6 @@ release = "0.1.2"
 # ones.
 extensions = [
     "sphinx.ext.napoleon",
-    "numpydoc",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
 ]
