@@ -17,6 +17,10 @@ AUX_FOLDER_PATH = r"C:\Users\leona\Documents\Repositories\FuzzyTableExtractor\te
 
 
 class BaseHandler(ABC):
+    """The Base Handler is an abstract class that defines the interface for all other handlers.
+    This interface will be used by the Extractor to search for tables in the document.
+    """
+
     def __init__(self, file_path: Path) -> None:
         self.file_path = file_path
 
@@ -37,6 +41,11 @@ class BaseHandler(ABC):
 
 
 class DocxHandler(BaseHandler):
+    """The DocxHandler is handler for Microsoft Word Documents.
+    It is suposed to use the newer .docx format for Word Documents, but if a .doc file is provided,
+    it will be converted to .docx format.
+
+    """
     def __init__(self, file_path: Path):
         super().__init__(file_path)
         self.__file_path = file_path
@@ -223,7 +232,7 @@ class DocxHandler(BaseHandler):
         """Open document and creates a docx file if necessary
 
         Returns:
-            - Document: word document object
+            Document: word document object
         """
         folder, file_name = os.path.split(self.__file_path)
         self.file_name = self.__file_path.stem
@@ -266,10 +275,10 @@ class DocxHandler(BaseHandler):
         """Merge dataframes that has the same header and drop duplicated lines
 
         Args:
-            - dfs (List[pd.DataFrame]): list of dataframes from doc extraction
+            dfs (List[pd.DataFrame]): list of dataframes from doc extraction
 
         Returns:
-            - List[pd.DataFrame]: list of merged dataframes
+            List[pd.DataFrame]: list of merged dataframes
         """
         headers = ["&".join(df.columns.tolist()) for df in dfs]
         header_df = pd.DataFrame(headers, columns=["headers"])

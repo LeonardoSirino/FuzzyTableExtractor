@@ -34,12 +34,12 @@ class Extractor:
         """Extract the table in document that has the closest header to search_headers
 
         Args:
-            - search_headers (List[str]): list of itens to search in header.
-            - validation_funtion (Callable[[List[str]], bool], optional): function to validate if the table is valid. This function receives the table header as argument and must return True if the table is valid. Defaults to lambda x: True.
-            - minimum_proximity_ratio (float, optional): minimum proximity ratio to consider there is a match in header. Value must be between 0 and 100. Defaults to 0.
+            search_headers (List[str]): list of itens to search in header.
+            validation_funtion (Callable[[List[str]], bool], optional): function to validate if the table is valid. This function receives the table header as argument and must return True if the table is valid. Defaults to lambda x: True.
+            minimum_proximity_ratio (float, optional): minimum proximity ratio to consider there is a match in header. Value must be between 0 and 100. Defaults to 0.
 
         Returns:
-            - pd.DataFrame: best match
+            pd.DataFrame: best match
         """
         if minimum_proximity_ratio < 0 or minimum_proximity_ratio > 100:
             raise ValueError("minimum_proximity_ratio must be between 0 and 100")
@@ -81,14 +81,14 @@ class Extractor:
         The data will be extracted from tables in document
 
         Args:
-            - field (str): search field
-            - orientation (FieldOrientation): orientation to search the content of field
-            - regex (List[str], optional): list of regex to apply to content. To be a valid content there must be at least one match of regex in list. Defaults to [''].
-            - title_regex (List[str], optional): list of regex to apply to title. To be a valid title there must be at least one match of regex in list. Defaults to [''].
-            - return_multiple (bool, optional): if True, will return all matches that has the same proximity ratio. Defaults to False.
+            field (str): search field
+            orientation (FieldOrientation): orientation to search the content of field
+            regex (List[str], optional): list of regex to apply to content. To be a valid content there must be at least one match of regex in list. Defaults to [''].
+            title_regex (List[str], optional): list of regex to apply to title. To be a valid title there must be at least one match of regex in list. Defaults to [''].
+            return_multiple (bool, optional): if True, will return all matches that has the same proximity ratio. Defaults to False.
 
         Returns:
-            - str: best match
+            str: best match
         """
         df = self.doc_handler.dictionary
 
@@ -121,11 +121,11 @@ class Extractor:
         """Calculates a proximity ratio of two headers
 
         Args:
-            - document_headers (List[str]): headers in document
-            - search_headers (List[str]): search headers
+            document_headers (List[str]): headers in document
+            search_headers (List[str]): search headers
 
         Returns:
-            - int: proximity ratio
+            int: proximity ratio
         """
         matches = Extractor.headers_association(document_headers, search_headers)
 
@@ -144,11 +144,11 @@ class Extractor:
         """Determine the best association of two headers
 
         Args:
-            - document_headers (List[str]): headers in document
-            - search_headers (List[str]): search headers
+            document_headers (List[str]): headers in document
+            search_headers (List[str]): search headers
 
         Returns:
-            - List[TableMatch]: list of table headers matches
+            List[TableMatch]: list of table headers matches
         """
         if len(search_headers) > len(document_headers):
             return []
@@ -181,12 +181,12 @@ class Extractor:
         The columns will be renamed to match the closest column name
 
         Args:
-            - df (pd.DataFrame): dataframe to search columns
-            - columns (List[str]): columns to search
-            - threshold (int, optional): minimum score to consider a match. Defaults to 0.
+            df (pd.DataFrame): dataframe to search columns
+            columns (List[str]): columns to search
+            threshold (int, optional): minimum score to consider a match. Defaults to 0.
 
         Returns:
-            - List[str]: columns that match
+            List[str]: columns that match
         """
         association = Extractor.headers_association(df.columns.to_list(), columns)
 
