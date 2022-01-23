@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
 from functools import lru_cache
 from pathlib import Path
 from typing import List

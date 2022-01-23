@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath("../.."))
 
-autodoc_mock_imports = ["pywin32", "fuzzywuzzy", "pandas", "python-docx", "numpy"]
+autodoc_mock_imports = ["pywin32", "fuzzywuzzy", "pandas", "python-docx", "numpy", "win32com"]
 
 
 # -- Project information -----------------------------------------------------
