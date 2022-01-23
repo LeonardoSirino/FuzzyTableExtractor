@@ -24,6 +24,7 @@ autodoc_mock_imports = [
     "numpy",
     "win32com",
     "docx",
+    "unidecode",
 ]
 
 
