@@ -16,18 +16,6 @@ import sys
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath("../.."))
 
-autodoc_mock_imports = [
-    "pywin32",
-    "fuzzywuzzy",
-    "pandas",
-    "python-docx",
-    "numpy",
-    "win32com",
-    "docx",
-    "unidecode",
-]
-
-
 # -- Project information -----------------------------------------------------
 
 project = "Fuzzy Table Extractor"
@@ -47,6 +35,18 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
+]
+
+# Libraries to be mocked in the build process of the documentation.
+autodoc_mock_imports = [
+    "pywin32",
+    "fuzzywuzzy",
+    "pandas",
+    "python-docx",
+    "numpy",
+    "win32com",
+    "docx",
+    "unidecode",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
