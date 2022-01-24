@@ -22,7 +22,15 @@ class FieldOrientation(Enum):
 
 
 class Extractor:
+    """The Extractor class has the functions to extract data from tables in document.
+    It receives a document handler on initialization, this handler follows an interface, so the extraction is agnostic of the document type.
+    """
     def __init__(self, doc_handler: BaseHandler) -> None:
+        """Initialize the extractor with a document handler
+
+        Args:
+            doc_handler (BaseHandler): document handler to extract data from
+        """
         self.doc_handler = doc_handler
 
     def extract_closest_table(
