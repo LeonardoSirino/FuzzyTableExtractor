@@ -14,11 +14,17 @@ What can Fuzzy Table Extractor do?
 
 It can finds tables in documents based on a target header, searching all tables in document and returing the one that has the most similar header, using a fuzzy search algorithm.
 
-For a Word document that looks like this:
+It's available on PyPI, so the installation can be done with pip:
+
+.. code-block:: console
+
+   pip install fuzzy-table-extractor
+
+To extract a table from a simple document like this:
 
 .. image:: ../../assets/basic_document.png
 
-The following code can be used to extract the table:
+We need just a few lines of code:
 
 .. code-block:: python
 
@@ -33,7 +39,7 @@ The following code can be used to extract the table:
    handler = DocxHandler(file_path)
 
    extractor = Extractor(handler)
-   df = extractor.extract_closest_table(["id", "name", "age"])
+   df = extractor.extract_closest_table(["name", "age"])
    print("This is the result extraction of a very simple document:")
    print(df)
 
@@ -41,9 +47,11 @@ And the result is a pandas dataframe with the following content:
 
 .. code-block:: console
 
-   id  name age
-   0  0  Paul  25
-   1  1  John  32
+   name age
+   0  Paul  25
+   1  John  32
+
+Note that the dataframe returned only has the coluns specified as search headers. The closest column in the original table is selected and renamed to value passed to the function.
 
 .. note::
    This is a development version of Fuzzy Table Extractor.
