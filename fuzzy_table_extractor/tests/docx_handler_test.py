@@ -13,7 +13,7 @@ def test_docx_handler_words():
 def test_docx_handler_tables():
     file_path = Path(BASIC_DOC_PATH)
     handler = DocxHandler(file_path)
-    assert len(handler.tables) == 1
+    assert len(handler.tables) == 2
 
 
 def test_docx_dict():
