@@ -2,8 +2,28 @@ import re
 from functools import lru_cache
 from typing import List
 
+import pandas as pd
+from docx.table import Table
 from fuzzywuzzy import fuzz
 from unidecode import unidecode
+
+
+def table_to_dataframe(table: Table) -> pd.DataFrame:
+    data = []
+    headers = []
+    for i, row in enumerate(table.rows):
+        row = [cell.text for cell in row.cells]
+
+        if i == 0:
+            headers = row
+        else:
+            data.append(row)
+
+    # TODO sometimes the lenght of headers is different from the lenght of data
+    # Check these cases and find a way to handle this situation
+    df = pd.DataFrame(columns=headers, data=data)
+
+    return df
 
 
 @lru_cache(maxsize=None)

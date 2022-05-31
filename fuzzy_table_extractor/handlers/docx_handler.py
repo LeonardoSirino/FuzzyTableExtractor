@@ -1,17 +1,30 @@
+from __future__ import annotations
+
 import logging
 import os
 import re
-from functools import lru_cache
+from dataclasses import dataclass
+from functools import cache, lru_cache
+from io import StringIO
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import win32com.client as win32
 from docx.api import Document
+from docx.oxml.numbering import CT_NumPr
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.oxml.text.run import CT_Text
 from docx.table import Table
+from docx.text.paragraph import Paragraph
+from lxml import etree
 
+from ..util import table_to_dataframe
 from .base_handler import BaseHandler
+
+TITLE_NUM_IDS = [5, 7, 11]
 
 
 class DocxHandler(BaseHandler):
@@ -140,19 +153,8 @@ class DocxHandler(BaseHandler):
 
         # Gettind data from conventional tables
         for table in tables:
-            data = []
-            headers = []
-            for i, row in enumerate(table.rows):
-                row = [cell.text for cell in row.cells]
+            df = table_to_dataframe(table)
 
-                if i == 0:
-                    headers = row
-                else:
-                    data.append(row)
-
-            # TODO sometimes the lenfth of headers is different from the lenght of data
-            # Check these cases and find a way to handle this situation
-            df = pd.DataFrame(columns=headers, data=data)
             if len(df) > 0:
                 dfs.append(df)
 
@@ -280,3 +282,362 @@ class DocxHandler(BaseHandler):
             merged_dfs.append(merged)
 
         return merged_dfs
+
+
+@dataclass
+class _DocxTopic:
+    level: int
+    num_id: int
+    text: str
+
+    def __post_init__(self) -> None:
+        text = self.text
+
+        patterns_to_remove = [
+            r"\_{2,}",
+            r"\;$",
+        ]
+        for pattern in patterns_to_remove:
+            text = re.sub(pattern, "", text)
+
+        text = text.strip()
+
+        self.text = text
+
+    def __repr__(self) -> str:
+        text = f"{'   ' * self.level}{self.text}"
+
+        return text
+
+
+@dataclass
+class _DocxCheckbox:
+    name: str
+    state: bool
+
+    def __post_init__(self) -> None:
+        name = self.name
+
+        patterns_to_remove = [
+            r"\_{2,}",
+        ]
+        for pattern in patterns_to_remove:
+            name = re.sub(pattern, "", name)
+
+        name = name.strip()
+
+        self.name = name
+
+
+@dataclass
+class _DocxHyperlink:
+    text: str
+    level: int
+    xpath: str
+
+    def __repr__(self) -> str:
+        text = f"{'  ' * self.level}{self.text}"
+        return text
+
+
+class _DocxHyperlinksManager:
+    def __init__(self, document_content: str) -> None:
+        self._hyperlinks: List[_DocxHyperlink] = []
+        self._parse(document_content)
+
+    def _parse(self, content: str) -> None:
+        io_content = StringIO(content)
+        self.tree = etree.parse(io_content, etree.XMLParser(remove_blank_text=True))
+
+        root = self.tree.getroot()
+        numbers = root.xpath("//w:hyperlink/w:r[1]/w:t", namespaces=root.nsmap)
+
+        titles = root.xpath("//w:hyperlink/w:r[3]/w:t", namespaces=root.nsmap)
+
+        for number, title in zip(numbers, titles):
+            xpath = self.tree.getpath(title)
+            level = len([x for x in number.text if x == "."]) - 1
+            hyperlink = _DocxHyperlink(title.text.strip(), level, xpath)
+
+            self._hyperlinks.append(hyperlink)
+
+    def has_items(self) -> bool:
+        return len(self._hyperlinks) > 0
+
+    def get_paragraph_level(self, par: Paragraph) -> int:
+        """Checks if the supplied paragraph matches the next section name, returns the level of the section name if it does
+
+        Args:
+            par (Paragraph): paragraph to be checked
+
+        Raises:
+            ValueError: When the paragraph is not a section name or there is no more section names in the document
+
+        Returns:
+            int: the level of the section name
+        """
+        try:
+            next_link = self._hyperlinks[0]
+        except IndexError:
+            raise ValueError("There are no more hyperlinks in the document")
+
+        # TODO match the item xpath, not its content
+        pattern = fr"^{next_link.text}"
+        if re.search(pattern, par.text.strip(), re.IGNORECASE):
+            logging.debug(f"Found hyperlink: {next_link}")
+            level = next_link.level
+            self._hyperlinks.pop(0)
+            return level
+        else:
+            raise ValueError(
+                f"Paragraph text '{par.text}' does not match next hyperlink '{next_link.text}'"
+            )
+
+    def __str__(self) -> str:
+        if not self._hyperlinks:
+            return "No hyperlinks found"
+
+        blocks = []
+        for hyperlink in self._hyperlinks:
+            text = f"{'    ' * hyperlink.level}{hyperlink.text}"
+            blocks.append(text)
+
+        return "\n".join(blocks)
+
+
+class _DocxNode:
+    """DocxNode is used to create a tree like structure of a Microsoft Word Document."""
+
+    def __init__(self, content: str, num_id: int, level: int):
+        # TODO find a better way to handle line breaks in content
+        self.content = content.strip().replace("\n", "|")
+        self.num_id = num_id
+        self.level = level
+
+        self.paragraphs: List[str] = []
+        self.tables: List[pd.DataFrame] = []
+        self.topics: List[_DocxTopic] = []
+        self.checkboxes: List[_DocxCheckbox] = []
+
+        self.nodes: List[_DocxNode] = []
+
+        self._last_node: _DocxNode = self
+
+    def add_paragraph(self, paragraph: str):
+        """Add the given paragraph to the last node added to the tree.
+
+        Args:
+            paragraph (str): paragraph content
+        """
+        self._last_node.paragraphs.append(paragraph)
+
+    def add_topic(self, topic: _DocxTopic):
+        """Add the given topic to the last node added to the tree.
+
+        Args:
+            topic (DocxTopic): topic to be added
+        """
+        self._last_node.topics.append(topic)
+
+    def add_table(self, table: pd.DataFrame):
+        """Add the given table to the last node added to the tree.
+
+        Args:
+            table (pd.DataFrame): table content as a pandas DataFrame
+        """
+        self._last_node.tables.append(table)
+
+    def add_checkbox(self, checkbox: _DocxCheckbox):
+        """Add the given checkbox to the last node added to the tree.
+
+        Args:
+            checkbox (DocxCheckbox): checkbox data
+        """
+        self._last_node.checkboxes.append(checkbox)
+
+    def add_node(self, node: _DocxNode):
+        """Finds the last node in tree that is one level below the current node and adds the given node to it."""
+        parent_section = self
+        while True:
+            if node.level == parent_section.level + 1:
+                break
+
+            parent_section = parent_section.nodes[-1]
+
+        parent_section.nodes.append(node)
+        self._last_node = node
+
+    def __repr__(self):
+        children = ""
+        for node in self.nodes:
+            lines = str(node).split("\n")
+            for line in lines:
+                children += f"\t{line}\n"
+
+        metrics = (
+            f"{len(self.paragraphs)}P | {len(self.topics)}To | {len(self.tables)}Ta"
+        )
+        base = f"{self.level} - {self.content} ({metrics})"
+
+        return f"{base}\n{children}"
+
+    def get_topics(self, recursive: bool = False) -> List[_DocxTopic]:
+        if not recursive:
+            return self.topics
+
+        topics = self.topics
+        for node in self.nodes:
+            topics.extend(node.get_topics(recursive))
+
+        return topics
+
+    def get_checkboxes(self, recursive: bool = False) -> List[_DocxCheckbox]:
+        if not recursive:
+            return self.checkboxes
+
+        checkboxes = self.checkboxes
+        for node in self.nodes:
+            checkboxes.extend(node.get_checkboxes(recursive))
+
+        return checkboxes
+
+    def get_paragraphs(self, recursive: bool = False) -> List[str]:
+        if not recursive:
+            return self.paragraphs
+
+        paragraphs = self.paragraphs
+        for node in self.nodes:
+            paragraphs.extend(node.get_paragraphs(recursive))
+
+        return paragraphs
+
+    def get_nodes(self, recursive: bool = False) -> List[_DocxNode]:
+        if not recursive:
+            return self.nodes
+
+        nodes = self.nodes
+        for node in self.nodes:
+            nodes.extend(node.get_nodes(recursive))
+
+        return nodes
+
+    def get_tables(self, recursive: bool = False) -> List[pd.DataFrame]:
+        if not recursive:
+            return self.tables
+
+        tables = self.tables
+        for node in self.nodes:
+            tables.extend(node.get_tables(recursive))
+
+        return tables
+
+
+class TreeDocxHandler(DocxHandler):
+    """The TreeDocxHandler is a specialization of the DocxHandler that creates a tree structure of the document.
+    Each level on this tree is related to a section in the document.
+    This handler should be used when there is a need to access information in a specific section of the document, otherwise the 
+    DocxHandler should be used, as it is more efficient.
+    """
+
+    def __init__(self, file_path: Path) -> None:
+        super().__init__(file_path)
+        self.file_name = file_path.stem
+
+    def _handle_checkboxes(self, paragraph: Paragraph, root: _DocxNode) -> None:
+        split_candidates = [
+            "/",
+            " / ",
+            "-",
+            " - ",
+            "\n",
+        ]
+
+        checkboxes = paragraph._element.xpath(".//w:checkBox/w:default")
+        states = []
+        for x in checkboxes:
+            _, value = x.items()[0]
+            states.append(value == "1")
+
+        if len(states) == 0:
+            return
+        elif len(states) == 1:
+            root.add_checkbox(_DocxCheckbox(paragraph.text, states[0]))
+        else:
+            for split in split_candidates:
+                names = paragraph.text.split(split)
+                if len(names) == len(states):
+                    for name, state in zip(names, states):
+                        root.add_checkbox(_DocxCheckbox(name, state))
+
+                    return
+
+    def _handle_paragraph(self, paragraph: Paragraph, root: _DocxNode) -> None:
+        # TODO also remove some chars not wanted to constitute a paragraph
+        if paragraph.text.strip() == "":
+            return
+
+        self._handle_checkboxes(paragraph, root)
+
+        # print(paragraph.text)
+        # text = 'parecer final / conclusion'
+        # if text in paragraph.text.lower():
+        #     print(paragraph.text)
+        #     print(paragraph._p.pPr.numPr)
+        #     quit()
+
+        # trying to find paragraph level as a hyperlink
+        try:
+            level = self._hyperlinks_manager.get_paragraph_level(paragraph)
+            section = _DocxNode(paragraph.text, 5, level)
+            root.add_node(section)
+
+            return
+        except ValueError:
+            pass
+
+        # trying to find paragraph level by its pPr number and level
+        try:
+            number: CT_NumPr = paragraph._p.pPr.numPr
+            level = number.ilvl.val
+            num_id = number.numId.val
+
+            if num_id in TITLE_NUM_IDS:
+                section = _DocxNode(paragraph.text, num_id, level)
+                root.add_node(section)
+            else:
+                topic = _DocxTopic(level, num_id, paragraph.text)
+                root.add_topic(topic)
+
+            return
+        except AttributeError:
+            pass
+
+        root.add_paragraph(paragraph.text)
+
+    def _handle_table(self, table: Table, root: _DocxNode) -> None:
+        # TODO handle inner tables that may appear in document
+        df = table_to_dataframe(table)
+        root.add_table(df)
+
+    @property
+    @cache
+    def root_node(self) -> _DocxNode:
+        """The root node of the document tree."""
+        self._hyperlinks_manager = _DocxHyperlinksManager(self.document._element.xml)
+
+        doc = self.document
+        root = _DocxNode("root", num_id=-1, level=-1)
+        for child in doc.element.body.iterchildren():
+            if isinstance(child, CT_P):
+                par = Paragraph(child, self.document)
+                self._handle_paragraph(par, root)
+            elif isinstance(child, CT_Tbl):
+                table = Table(child, self.document)
+                self._handle_table(table, root)
+            else:
+                logging.info(f"Unhandled child type: {type(child)}")
+
+        if self._hyperlinks_manager.has_items():
+            logging.warning("Not all hyperlinks were handled")
+
+        return root
