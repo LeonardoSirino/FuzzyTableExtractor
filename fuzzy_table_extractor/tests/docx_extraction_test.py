@@ -1,4 +1,4 @@
-from ..doc_handlers import DocxHandler
+from ..handlers.docx_handler import DocxHandler
 from ..extractor import Extractor, FieldOrientation
 
 from pathlib import Path

@@ -5,7 +5,7 @@ from typing import Callable, List
 import numpy as np
 import pandas as pd
 
-from .doc_handlers import BaseHandler
+from .handlers.base_handler import BaseHandler
 from .util import match_regex_list, str_comparison
 
 

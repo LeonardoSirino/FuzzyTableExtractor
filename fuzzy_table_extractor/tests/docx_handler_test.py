@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ..doc_handlers import DocxHandler
+from ..handlers.docx_handler import DocxHandler
 
 BASIC_DOC_PATH = r"sample_docs\E001 - basic content.docx"
 
