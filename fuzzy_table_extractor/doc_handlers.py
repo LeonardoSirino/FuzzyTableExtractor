@@ -12,9 +12,6 @@ import win32com.client as win32
 from docx.api import Document
 from docx.table import Table
 
-# TODO move this to config file
-AUX_FOLDER_PATH = r"C:\Users\leona\Documents\Repositories\FuzzyTableExtractor\temp"
-
 
 class BaseHandler(ABC):
     """The Base Handler is an abstract class that defines the interface for all other handlers.
@@ -46,9 +43,17 @@ class DocxHandler(BaseHandler):
     it will be converted to .docx format.
 
     """
-    def __init__(self, file_path: Path):
+
+    def __init__(self, file_path: Path, temp_folder: Path = Path("temp")) -> None:
+        """Creates a new DocxHandler instance.
+
+        Args:
+            file_path (Path): path to file to be handled
+            temp_folder (str, optional): path to temporary folder where docx files will be created when the supplied file has .doc extension. Defaults to 'temp'.
+        """
         super().__init__(file_path)
-        self.__file_path = file_path
+        self._file_path = file_path
+        self._temp_folder = temp_folder
 
     @property
     @lru_cache
@@ -195,7 +200,7 @@ class DocxHandler(BaseHandler):
             df = pd.DataFrame(columns=header, data=aux)
             dfs.append(df)
 
-        dfs = self.__merge_dfs(dfs)
+        dfs = self._merge_dfs(dfs)
 
         return dfs
 
@@ -234,17 +239,19 @@ class DocxHandler(BaseHandler):
         Returns:
             Document: word document object
         """
-        folder, file_name = os.path.split(self.__file_path)
-        self.file_name = self.__file_path.stem
-        file_extension = self.__file_path.suffix[1:]
+        folder, file_name = os.path.split(self._file_path)
+        self.file_name = self._file_path.stem
+        file_extension = self._file_path.suffix[1:]
 
         if file_extension == "doc":
             docx_file_name = f"x_{file_name}x"
-            docx_file_path = os.path.join(AUX_FOLDER_PATH, docx_file_name)
+            docx_file_path = self._temp_folder / docx_file_name
 
             if os.path.exists(docx_file_path):
                 pass
             else:
+                self._temp_folder.mkdir(exist_ok=True, parents=True)
+
                 # Create a docx file if it yet does not exist in folder
                 logging.info("Creating the docx file in the aux folder")
 
@@ -257,21 +264,22 @@ class DocxHandler(BaseHandler):
                 word = win32.gencache.EnsureDispatch("Word.Application")
 
                 # NOTE this function does not accept the path as an object
-                doc = word.Documents.Open(str(self.__file_path))
+                doc = word.Documents.Open(str(self._file_path.resolve()))
                 doc.Activate()
 
                 # Save and Close
                 word.ActiveDocument.SaveAs(
-                    docx_file_path, FileFormat=win32.constants.wdFormatXMLDocument
+                    str(docx_file_path.resolve()),
+                    FileFormat=win32.constants.wdFormatXMLDocument
                 )
                 doc.Close(False)
 
-            self.__file_path = docx_file_path
+            self._file_path = docx_file_path
 
-        document = Document(self.__file_path)
+        document = Document(str(self._file_path.resolve()))
         return document
 
-    def __merge_dfs(self, dfs: List[pd.DataFrame]) -> List[pd.DataFrame]:
+    def _merge_dfs(self, dfs: List[pd.DataFrame]) -> List[pd.DataFrame]:
         """Merge dataframes that has the same header and drop duplicated lines
 
         Args:
