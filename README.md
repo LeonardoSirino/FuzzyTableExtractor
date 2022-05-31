@@ -21,7 +21,7 @@ Here is an example of table extraction for a very simple document:
 ```python
 from pathlib import Path
 
-from fuzzy_table_extractor.doc_handlers import DocxHandler
+from fuzzy_table_extractor.handlers.docx_handler import DocxHandler
 from fuzzy_table_extractor.extractor import Extractor
 
 file_path = Path(r"path_to_document.docx")
@@ -59,7 +59,7 @@ There is also the possibility to extract only a single field (cell) from a docum
 ```python
 from pathlib import Path
 
-from fuzzy_table_extractor.doc_handlers import DocxHandler
+from fuzzy_table_extractor.handlers.docx_handler import DocxHandler
 from fuzzy_table_extractor.extractor import Extractor, FieldOrientation
 
 file_path = Path(r"path_to_document.docx")

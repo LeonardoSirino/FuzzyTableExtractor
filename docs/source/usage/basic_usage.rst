@@ -8,7 +8,7 @@ Getting a table from a Microsoft Word documentation
 
    from pathlib import Path
 
-   from fuzzy_table_extractor.doc_handlers import DocxHandler
+   from fuzzy_table_extractor.handlers.docx_handler import DocxHandler
    from fuzzy_table_extractor.extractor import Extractor, FieldOrientation
 
    path = r"path_to_document.docx"

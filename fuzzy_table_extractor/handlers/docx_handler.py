@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import cache, lru_cache
 from io import StringIO
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,6 @@ from docx.api import Document
 from docx.oxml.numbering import CT_NumPr
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
-from docx.oxml.text.run import CT_Text
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from lxml import etree

@@ -30,7 +30,7 @@ We need just a few lines of code:
 
    from pathlib import Path
 
-   from fuzzy_table_extractor.doc_handlers import DocxHandler
+   from fuzzy_table_extractor.handlers.docx_handler import DocxHandler
    from fuzzy_table_extractor.extractor import Extractor, FieldOrientation
 
    path = r"path_to_document.docx"
@@ -66,4 +66,5 @@ Contents
    installation
    usage/basic_usage
    api/extractor
-   api/doc_handlers/doc_handlers
+   api/handlers/base_handler
+   api/handlers/docx_handler
