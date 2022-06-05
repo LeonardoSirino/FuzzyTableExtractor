@@ -21,7 +21,7 @@ from docx.text.paragraph import Paragraph
 from lxml import etree
 
 from ..util import table_to_dataframe
-from .base_handler import BaseHandler
+from .base_handler import BaseHandler, BaseNode, TreeFileHandler
 
 TITLE_NUM_IDS = [5, 7, 11]
 
@@ -404,12 +404,13 @@ class _DocxHyperlinksManager:
         return "\n".join(blocks)
 
 
-class _DocxNode:
+class _DocxNode(BaseNode):
     """DocxNode is used to create a tree like structure of a Microsoft Word Document."""
 
-    def __init__(self, content: str, num_id: int, level: int):
-        # TODO find a better way to handle line breaks in content
-        self.content = content.strip().replace("\n", "|")
+    def __init__(self, title: str, num_id: int, level: int):
+        title = title.strip().replace("\n", "|")
+        super().__init__(title)
+
         self.num_id = num_id
         self.level = level
 
@@ -531,10 +532,10 @@ class _DocxNode:
         return tables
 
 
-class TreeDocxHandler(DocxHandler):
+class TreeDocxHandler(DocxHandler, TreeFileHandler):
     """The TreeDocxHandler is a specialization of the DocxHandler that creates a tree structure of the document.
     Each level on this tree is related to a section in the document.
-    This handler should be used when there is a need to access information in a specific section of the document, otherwise the 
+    This handler should be used when there is a need to access information in a specific section of the document, otherwise the
     DocxHandler should be used, as it is more efficient.
     """
 
@@ -620,7 +621,7 @@ class TreeDocxHandler(DocxHandler):
 
     @property
     @cache
-    def root_node(self) -> _DocxNode:
+    def root(self) -> _DocxNode:
         """The root node of the document tree."""
         self._hyperlinks_manager = _DocxHyperlinksManager(self.document._element.xml)
 
