@@ -236,7 +236,6 @@ class DocxHandler(BaseHandler):
                 # NOTE
                 # If errors are found, do this
                 # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
-                # C:\Users\u122004\AppData\Local\Temp\gen_py
 
                 # Opening MS Word
                 word = win32.gencache.EnsureDispatch("Word.Application")
@@ -477,7 +476,7 @@ class _DocxNode(BaseNode):
         metrics = (
             f"{len(self.paragraphs)}P | {len(self.topics)}To | {len(self.tables)}Ta"
         )
-        base = f"{self.level} - {self.content} ({metrics})"
+        base = f"{self.level} - ({metrics})"
 
         return f"{base}\n{children}"
 

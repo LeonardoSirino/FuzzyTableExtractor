@@ -40,6 +40,7 @@ class Extractor:
         search_headers: List[str],
         validation_funtion: Callable[[List[str]], bool] = lambda x: True,
         minimum_proximity_ratio: float = 0,
+        rename_columns: bool = True,
     ) -> pd.DataFrame:
         """Extract the table in document that has the closest header to search_headers
 
@@ -47,6 +48,7 @@ class Extractor:
             search_headers (List[str]): list of itens to search in header.
             validation_funtion (Callable[[List[str]], bool], optional): function to validate if the table is valid. This function receives the table header as argument and must return True if the table is valid. Defaults to lambda x: True.
             minimum_proximity_ratio (float, optional): minimum proximity ratio to consider there is a match in header. Value must be between 0 and 100. Defaults to 0.
+            rename_columns (bool, optional): if true, the returned dataframe will have its columns renamed to match the search_headers. Defaults to True.
 
         Returns:
             pd.DataFrame: best match
@@ -73,9 +75,9 @@ class Extractor:
         if best_ratio < minimum_proximity_ratio:
             return pd.DataFrame()
 
-        best_match = tables[np.argmax(ratios)]
-
-        df = self.get_columns_fuzzy(best_match, search_headers)
+        df = tables[np.argmax(ratios)]
+        if rename_columns:
+            df = self.get_columns_fuzzy(df, search_headers)
 
         return df
 

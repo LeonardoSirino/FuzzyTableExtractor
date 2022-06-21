@@ -94,14 +94,16 @@ class BaseNode(BaseHandler):
             return tables
 
     def get_dictionary(self, recursive: bool) -> pd.DataFrame:
+        raise NotImplementedError
         tables = self.get_tables(recursive=recursive)
 
         data = {}
-        for table in tables:
+        # for table in tables:
 
 
 
 class TreeFileHandler(BaseHandler):
-    @property
-    def root(self) -> BaseNode:
-        return BaseNode("")
+    pass
+    # @property
+    # def root(self) -> BaseNode:
+    #     return BaseNode("")

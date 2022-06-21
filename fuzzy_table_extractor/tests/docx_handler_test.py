@@ -34,8 +34,7 @@ def test_tree_doc_handler():
     file_path = r"sample_docs\E006 - doc with sections.docx"
 
     handler = TreeDocxHandler(Path(file_path))
-
-    root = handler.root_node
+    root = handler.root
 
     assert root is not None
     assert len(root.get_paragraphs(recursive=True)) > 0
