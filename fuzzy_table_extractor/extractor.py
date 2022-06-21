@@ -165,6 +165,9 @@ class Extractor:
         if len(search_headers) > len(document_headers):
             return []
 
+        # creating a copy of the list to prevent modifying it inplace
+        document_headers = document_headers[:]
+
         matches = []
 
         for s_header in search_headers:
