@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cache, lru_cache
+from functools import cached_property
 from io import StringIO
 from pathlib import Path
 from typing import List
@@ -44,10 +45,8 @@ class DocxHandler(BaseHandler):
         self._file_path = file_path
         self._temp_folder = temp_folder
 
-    @property
-    @lru_cache
-    def words(self) -> List[str]:
-        logging.log(logging.INFO, "Getting words from document")
+    @cached_property
+    def words(self) -> Sequence[str]:
         document = self.document
         words = []
 
@@ -75,8 +74,7 @@ class DocxHandler(BaseHandler):
 
         return words
 
-    @property
-    @lru_cache
+    @cached_property
     def dictionary(self) -> pd.DataFrame:
         logging.log(logging.INFO, "Getting dictionary from document")
         tables = self.docx_tables
@@ -128,9 +126,8 @@ class DocxHandler(BaseHandler):
 
         return df
 
-    @property
-    @lru_cache
-    def tables(self) -> List[pd.DataFrame]:
+    @cached_property
+    def tables(self) -> Sequence[pd.DataFrame]:
         logging.log(logging.INFO, "Getting tables from document")
         tables = self.docx_tables
 
@@ -182,8 +179,7 @@ class DocxHandler(BaseHandler):
 
         return dfs
 
-    @property
-    @lru_cache
+    @cached_property
     def docx_tables(self) -> List[Table]:
         """List of tables in docx document"""
         document = self.document
@@ -209,8 +205,7 @@ class DocxHandler(BaseHandler):
 
         return tables
 
-    @property
-    @lru_cache
+    @cached_property
     def document(self) -> Document:
         """Open document and creates a docx file if necessary
 
@@ -380,7 +375,7 @@ class _DocxHyperlinksManager:
             raise ValueError("There are no more hyperlinks in the document")
 
         # TODO match the item xpath, not its content
-        pattern = fr"^{next_link.text}"
+        pattern = rf"^{next_link.text}"
         if re.search(pattern, par.text.strip(), re.IGNORECASE):
             logging.debug(f"Found hyperlink: {next_link}")
             level = next_link.level
@@ -473,9 +468,7 @@ class _DocxNode(BaseNode):
             for line in lines:
                 children += f"\t{line}\n"
 
-        metrics = (
-            f"{len(self.paragraphs)}P | {len(self.topics)}To | {len(self.tables)}Ta"
-        )
+        metrics = f"{len(self.paragraphs)}P | {len(self.topics)}To | {len(self.tables)}Ta"
         base = f"{self.level} - ({metrics})"
 
         return f"{base}\n{children}"
@@ -618,8 +611,7 @@ class TreeDocxHandler(DocxHandler, TreeFileHandler):
         df = table_to_dataframe(table)
         root.add_table(df)
 
-    @property
-    @cache
+    @cached_property
     def root(self) -> _DocxNode:
         """The root node of the document tree."""
         self._hyperlinks_manager = _DocxHyperlinksManager(self.document._element.xml)

@@ -5,6 +5,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List
 
+from collections.abc import Sequence
+from functools import cached_property
+
 import pandas as pd
 
 
@@ -13,21 +16,13 @@ class BaseHandler(ABC):
     This interface will be used by the Extractor to search for tables in the document.
     """
 
+    words: cached_property[Sequence[str]]
+    tables: cached_property[Sequence[pd.DataFrame]]
+
     def __init__(self, file_path: Path) -> None:
         self.file_path = file_path
 
-    @property
-    def words(self) -> List[str]:
-        """List of all words in document"""
-        return []
-
-    @property
-    def tables(self) -> List[pd.DataFrame]:
-        """List of all tables (as dataframes) in document"""
-        return []
-
-    @property
-    @lru_cache
+    @cached_property
     def dictionary(self) -> pd.DataFrame:
         """All cell couples in document"""
         data = []
@@ -43,23 +38,22 @@ class BaseHandler(ABC):
         data = table.to_numpy()
 
         for k, col in enumerate(cols[:-1]):
-            pair = {'title': col, 'content': cols[k+1], 'orientation': 'row'}
+            pair = {"title": col, "content": cols[k + 1], "orientation": "row"}
             pairs.append(pair)
 
         for col, value in zip(cols, data[0]):
-            pair = {'title': col, 'content': value, 'orientation': 'column'}
+            pair = {"title": col, "content": value, "orientation": "column"}
             pairs.append(pair)
 
         for row in data:
             for k, value in enumerate(row[:-1]):
-                pair = {'title': value, 'content': value[k+1], 'orientation': 'row'}
+                pair = {"title": value, "content": value[k + 1], "orientation": "row"}
                 pairs.append(pair)
 
         for row in data.T:
             for k, value in enumerate(row[:-1]):
-                pair = {'title': value, 'content': value[k+1], 'orientation': 'column'}
+                pair = {"title": value, "content": value[k + 1], "orientation": "column"}
                 pairs.append(pair)
-
 
         return pairs
 
@@ -99,7 +93,6 @@ class BaseNode(BaseHandler):
 
         data = {}
         # for table in tables:
-
 
 
 class TreeFileHandler(BaseHandler):
