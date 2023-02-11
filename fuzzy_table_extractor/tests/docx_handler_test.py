@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ..handlers.docx_handler import DocxHandler
 
-BASIC_DOC_PATH = r"sample_docs\E001 - basic content.docx"
+BASIC_DOC_PATH = r"src\fte\sample_docs\E001 - basic content.docx"
 
 
 def test_docx_handler_words():
@@ -24,7 +24,7 @@ def test_docx_dict():
 
 
 def test_doc_conversion():
-    file_path = r"sample_docs\E001 - basic content.doc"
+    file_path = r"src\fte\sample_docs\E001 - basic content.doc"
 
     handler = DocxHandler(Path(file_path))
     assert len(handler.words) > 0
