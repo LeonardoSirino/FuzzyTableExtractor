@@ -524,6 +524,7 @@ class _DocxNode(BaseNode):
         return tables
 
 
+# TODO write tests for the Tree Docx Handler
 class TreeDocxHandler(DocxHandler, TreeFileHandler):
     """The TreeDocxHandler is a specialization of the DocxHandler that creates a tree structure of the document.
     Each level on this tree is related to a section in the document.
