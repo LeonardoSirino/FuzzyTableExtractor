@@ -1,12 +1,11 @@
-from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Iterable, List
+from typing import Callable, List
 
 import numpy as np
 import pandas as pd
 
-from .handlers.base_handler import BaseHandler, BaseNode, TreeFileHandler
+from .handlers.base_handler import BaseHandler
 from .util import match_regex_list, str_comparison
 
 
@@ -214,49 +213,3 @@ class Extractor:
         df.rename(columns=rename_dict, inplace=True)
 
         return df
-
-
-@dataclass
-class _SectionPath:
-    nodes: List[BaseNode]
-    score: float = 0
-
-    def add_node(self, node: BaseNode, section_names: List[str]):
-        name = section_names[len(self.nodes) - 1]
-        self.score += str_comparison(name, node.title)
-
-
-class TreeExtractor(Extractor):
-    def __init__(self, doc_handler: TreeFileHandler):
-        super().__init__(doc_handler)
-        self.doc_handler = doc_handler
-
-    def get_closest_section(self, titles: List[str]) -> BaseNode:
-        """Get the closest section given a list of section titles.
-        To reach the closest section all possible paths will be explored, the best path
-        is the one with the highest sum of title comparison scores.
-
-        Args:
-            titles (List[str]): list of section titles
-
-        Returns:
-            BaseNode: closest section
-        """
-
-        initial_path = _SectionPath(nodes=[self.doc_handler.root], score=0)
-        paths = deque([initial_path])
-        valid_paths = []
-
-        while paths:
-            path = paths.popleft()
-            for node in path.nodes:
-                new_path = _SectionPath(nodes=path.nodes[:], score=path.score)
-                new_path.add_node(node, titles)
-
-                if len(new_path.nodes) == len(titles) + 1:
-                    valid_paths.append(new_path)
-                else:
-                    paths.append(new_path)
-
-        best_path = max(valid_paths, key=lambda x: x.score)
-        return best_path
