@@ -1,6 +1,6 @@
 import re
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import List
 
 import pandas as pd
 from docx.table import Table
@@ -50,29 +50,3 @@ def str_comparison(text_a: str, text_b: str) -> int:
     ratio = fuzz.partial_ratio(a, b)
 
     return ratio
-
-
-def match_regex_list(text: str, patterns: List[str]) -> bool:
-    """Checks if text matches any regex in list
-    The match is performed in a case insensitive way
-
-    Args:
-        text (str): input text
-        regex (List[str]): list of regex
-
-    Returns:
-        bool: match of any regex
-    """
-    if len(patterns) == 0:
-        return True
-
-    for pattern in patterns:
-        res = re.finditer(pattern, text, re.IGNORECASE)
-
-        try:
-            next(res)
-            return True
-        except StopIteration:
-            pass
-
-    return False
