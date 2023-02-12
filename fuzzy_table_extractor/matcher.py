@@ -232,17 +232,29 @@ def get_columns_fuzzy(
             columns to consider a valid match. Defaults to 0, which means that any match
             is valid.
 
+    Raises:
+        NoValidMatch: If the proximity ratio between the search columns and the columns in
+            the dataframe is smaller than the threshold.
+
     Returns:
         pd.DataFrame: Dataframe with selected columns. Note that the columns in the
             dataframe will be renamed to match values inputed in the function.
     """
-    association = _naive_sequence_matching(df.columns.to_list(), columns)
-    association = [x for x in association if x.score > threshold]
+    df_ = df.copy()
+
+    association = _optimal_sequence_matching(df_.columns.to_list(), columns)
+    min_ratio = min([m.score for m in association])
+    if min_ratio < threshold:
+        raise NoValidMatch
 
     original = [x.original_term for x in association]
-    df = df[original]
+    df_ = df_[original]
 
     rename_dict = {x.original_term: x.search_term for x in association}
-    df.rename(columns=rename_dict, inplace=True)
+    df_.rename(columns=rename_dict, inplace=True)
 
-    return df
+    if df_.columns.duplicated().any():
+        df_ = df_.loc[:, ~df_.columns.duplicated()]
+
+    # ensure that columns will return in the supplied columns order.
+    return df_[columns]

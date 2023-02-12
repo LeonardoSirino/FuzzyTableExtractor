@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 import pandas as pd
 
-from .matcher import FieldOrientation, Matcher, _optimal_sequence_matching
+from .matcher import FieldOrientation, Matcher
 
 
 class FakeHandler:
@@ -28,6 +28,12 @@ def test_match_field():
         "title", orientation=FieldOrientation.ROW, return_multiple=False
     )
     assert field == "content"
+
+
+def test_match_field_return_multiple():
+    matcher = Matcher(
+        FakeHandler(mapping={"title": ["content", "other_content"]}, tables=[])
+    )
 
     field, _ = matcher.match_field(
         "title", orientation=FieldOrientation.ROW, return_multiple=True
@@ -65,3 +71,74 @@ def test_match_field_content_regex():
         regex=["other"],
     )
     assert field == "other_content"
+
+
+def test_match_table():
+    matcher = Matcher(
+        FakeHandler(
+            mapping={},
+            tables=_create_fake_dataframes([["nothing", "other"], ["title1", "name1"]]),
+        )
+    )
+
+    table, _ = matcher.match_table(search_headers=["title", "name"], rename_columns=False)
+    assert table.columns.to_list() == ["title1", "name1"]
+
+
+def test_match_table_renaming():
+    matcher = Matcher(
+        FakeHandler(
+            mapping={},
+            tables=_create_fake_dataframes([["nothing", "other"], ["title1", "name1"]]),
+        )
+    )
+
+    table, _ = matcher.match_table(search_headers=["title", "name"], rename_columns=True)
+    assert table.columns.to_list() == ["title", "name"]
+
+
+def test_match_table_out_of_order():
+    matcher = Matcher(
+        FakeHandler(
+            mapping={},
+            tables=_create_fake_dataframes([["nothing", "other"], ["name", "title"]]),
+        )
+    )
+
+    table, _ = matcher.match_table(search_headers=["title", "name"])
+    assert table.columns.to_list() == ["title", "name"]
+
+
+def test_match_table_more_headers():
+    matcher = Matcher(
+        FakeHandler(
+            mapping={},
+            tables=_create_fake_dataframes(
+                [["nothing", "other", "title"], ["name", "title", "other", "non related"]]
+            ),
+        )
+    )
+
+    table, _ = matcher.match_table(search_headers=["title", "name"])
+    assert table.columns.to_list() == ["title", "name"]
+
+
+def test_match_table_duplicated_columns():
+    matcher = Matcher(
+        FakeHandler(
+            mapping={},
+            tables=_create_fake_dataframes(
+                [
+                    ["nothing", "other", "title"],
+                    ["name", "title", "title", "non related"],
+                ]
+            ),
+        )
+    )
+
+    table, _ = matcher.match_table(search_headers=["title", "name"])
+    assert table.columns.to_list() == ["title", "name"]
+
+
+def _create_fake_dataframes(headers: Sequence[Sequence[str]]) -> Sequence[pd.DataFrame]:
+    return [pd.DataFrame(columns=h) for h in headers]
