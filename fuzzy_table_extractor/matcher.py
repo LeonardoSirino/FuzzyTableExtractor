@@ -11,7 +11,7 @@ from scipy import optimize
 from .util import str_comparison
 
 
-class NoValidMatch(Exception):
+class NoValidMatchError(Exception):
     def __init__(self) -> None:
         super().__init__("No valid matches found.")
 
@@ -72,7 +72,7 @@ class Matcher:
             tables = [t for t in tables if validation_funtion(t.columns.to_list())]
 
         if not tables:
-            raise NoValidMatch
+            raise NoValidMatchError
 
         ratios: MutableSequence[int] = []
         for t in tables:
@@ -108,7 +108,7 @@ class Matcher:
             map_ = {k: v for k, v in map_.items() if v}
 
         if not map_:
-            raise NoValidMatch
+            raise NoValidMatchError
 
         df = (
             pd.DataFrame(data=map_.items(), columns=["key", "value"])
@@ -128,7 +128,7 @@ class Matcher:
             else:
                 best_match = df["value"].values[0]
         except IndexError:
-            raise NoValidMatch
+            raise NoValidMatchError
 
         return best_match, max_ratio
 
@@ -245,7 +245,7 @@ def get_columns_fuzzy(
     association = _optimal_sequence_matching(df_.columns.to_list(), columns)
     min_ratio = min([m.score for m in association])
     if min_ratio < threshold:
-        raise NoValidMatch
+        raise NoValidMatchError
 
     original = [x.original_term for x in association]
     df_ = df_[original]

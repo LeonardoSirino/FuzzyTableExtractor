@@ -1,8 +1,8 @@
-import logging
+import functools
 import os
 import re
-from collections.abc import Sequence
-from functools import cached_property
+from collections import defaultdict
+from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import List
 
@@ -12,115 +12,79 @@ import win32com.client as win32
 from docx.api import Document
 from docx.table import Table
 
+from ..matcher import FieldOrientation
 from ..util import table_to_dataframe
-from .base_handler import BaseHandler
 
-TITLE_NUM_IDS = [5, 7, 11]
+_MAX_NESTING_LEVEL = 10
 
 
-class DocxHandler(BaseHandler):
-    """The DocxHandler is handler for Microsoft Word Documents.
-    It is suposed to use the newer .docx format for Word Documents, but if a .doc file is provided,
-    it will be converted to .docx format.
+class DocxHandler:
+    """Handler for Microsoft Word Documents.
 
+    It is suposed to use the newer .docx format for Word Documents, but if a .doc file is
+    provided, it will be converted to .docx format.
     """
 
     def __init__(self, file_path: Path, temp_folder: Path = Path("temp")) -> None:
         """Creates a new DocxHandler instance.
 
         Args:
-            file_path (Path): path to file to be handled
-            temp_folder (str, optional): path to temporary folder where docx files will be created when the supplied file has .doc extension. Defaults to 'temp'.
+            file_path (Path): Path to file to be handled
+            temp_folder (Path, optional): Path to temporary folder where docx files will
+                be created when the supplied file has .doc extension. Defaults to 'temp'.
         """
-        super().__init__(file_path)
         self._file_path = file_path
         self._temp_folder = temp_folder
 
-    @cached_property
-    def words(self) -> Sequence[str]:
-        document = self.document
-        words = []
+    def get_mapping(self, orientation: FieldOrientation) -> dict[str, Sequence[str]]:
+        return self._mapping[orientation]
 
-        # TODO check if there is another source of text that can be used for data extraction
-
-        # Adding text from paragraphs
-        paragraphs = document.paragraphs
-        for item in paragraphs:
-            aux = item.text
-            aux = aux.split()
-            words.extend(aux)
-
-        # Adding text from tables
-        for table in document.tables:
-            for row in table.rows:
-                data = [cell.text for cell in row.cells]
-                for item in data:
-                    words.extend(item.split())
-
-        words = list(set(words))
-        words = [word.lower() for word in words]
-        words = [re.sub(r"[,]$|[.]$|[\(|\)|\:|\;|\'|\"]", "", word) for word in words]
-
-        words = list(np.unique(words))
-
-        return words
-
-    @cached_property
-    def dictionary(self) -> pd.DataFrame:
-        logging.log(logging.INFO, "Getting dictionary from document")
-        tables = self.docx_tables
-        data = []
-        for table in tables:
+    @functools.cached_property
+    def _mapping(self) -> dict[FieldOrientation, dict[str, Sequence[str]]]:
+        row_mapping: dict[str, MutableSequence[str]] = defaultdict(list)
+        for table in self._docx_tables:
             n_cols = len(table.columns)
 
             for row in table.rows:
                 cells = row.cells
                 values = [cell.text for cell in cells]
                 for k in range(n_cols - 1):
-                    try:
-                        title = values[k]
-                        content = values[k + 1]
-                        if title != content and title != "" and content != "":
-                            data.append(
-                                {
-                                    "title": title,
-                                    "content": content,
-                                    "orientation": "row",
-                                }
-                            )
-                    except IndexError:
-                        pass
+                    if (k + 1) >= len(values):
+                        continue
 
-        for table in tables:
+                    title = values[k]
+                    content = values[k + 1]
+                    if title == content or title == "" or content == "":
+                        continue
+
+                    row_mapping[title].append(content)
+
+        col_mapping: dict[str, MutableSequence[str]] = defaultdict(list)
+        for table in self._docx_tables:
             n_rows = len(table.rows)
 
             for col in table.columns:
                 cells = col.cells
                 values = [cell.text for cell in cells]
                 for k in range(n_rows - 1):
-                    try:
-                        title = values[k]
-                        content = values[k + 1]
-                        if title != content and title != "" and content != "":
-                            data.append(
-                                {
-                                    "title": title,
-                                    "content": content,
-                                    "orientation": "column",
-                                }
-                            )
-                    except IndexError:
-                        pass
+                    if (k + 1) >= len(values):
+                        continue
 
-        df = pd.DataFrame(data)
-        df.drop_duplicates(inplace=True)
+                    title = values[k]
+                    content = values[k + 1]
+                    if title == content or title == "" or content == "":
+                        continue
 
-        return df
+                    col_mapping[title].append(content)
 
-    @cached_property
-    def tables(self) -> Sequence[pd.DataFrame]:
-        logging.log(logging.INFO, "Getting tables from document")
-        tables = self.docx_tables
+        return {
+            FieldOrientation.ROW: row_mapping,
+            FieldOrientation.COLUMN: col_mapping,
+        }
+
+    @functools.cache
+    def get_tables(self) -> Sequence[pd.DataFrame]:
+        tables = self._docx_tables
 
         # Getting subset of tables that has a merged header
         splited_tables = []
@@ -170,18 +134,16 @@ class DocxHandler(BaseHandler):
 
         return dfs
 
-    @cached_property
-    def docx_tables(self) -> List[Table]:
+    @functools.cached_property
+    def _docx_tables(self) -> Sequence[Table]:
         """List of tables in docx document"""
-        document = self.document
-        tables = document.tables
+        tables: MutableSequence[Table] = self._document.tables
 
-        new_tables = tables
+        new_tables = tables[:]
         count = 0
 
         # getting all inner tables
-        while len(new_tables) > 0:
-            count += 1
+        while new_tables:
             aux = []
             for table in new_tables:
                 for row in table.rows:
@@ -191,65 +153,60 @@ class DocxHandler(BaseHandler):
             tables.extend(aux)
             new_tables = aux
 
-            if count > 10:
+            count += 1
+            if count > _MAX_NESTING_LEVEL:
                 break
 
         return tables
 
-    @cached_property
-    def document(self) -> Document:
-        """Open document and creates a docx file if necessary
+    @functools.cached_property
+    def _document(self) -> Document:
+        """Open document and creates a docx file if necessary.
 
         Returns:
-            Document: word document object
+            Document: Word document object.
         """
-        folder, file_name = os.path.split(self._file_path)
-        self.file_name = self._file_path.stem
-        file_extension = self._file_path.suffix[1:]
+        file_path = self._file_path
+        if file_path.suffix[1:] == "doc":
+            file_path = self._create_docx_file()
 
-        if file_extension == "doc":
-            docx_file_name = f"x_{file_name}x"
-            docx_file_path = self._temp_folder / docx_file_name
+        return Document(str(file_path.resolve()))
 
-            if os.path.exists(docx_file_path):
-                pass
-            else:
-                self._temp_folder.mkdir(exist_ok=True, parents=True)
+    def _create_docx_file(self) -> Path:
+        file_name = self._file_path.stem
+        docx_file_name = f"_aux_{file_name}_file.docx"
+        docx_file_path = self._temp_folder / docx_file_name
 
-                # Create a docx file if it yet does not exist in folder
-                logging.info("Creating the docx file in the aux folder")
+        if os.path.exists(docx_file_path):
+            return docx_file_path
 
-                # NOTE
-                # If errors are found, do this
-                # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
+        self._temp_folder.mkdir(exist_ok=True, parents=True)
 
-                # Opening MS Word
-                word = win32.gencache.EnsureDispatch("Word.Application")
+        # NOTE
+        # If errors are found, do this
+        # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
 
-                # NOTE this function does not accept the path as an object
-                doc = word.Documents.Open(str(self._file_path.resolve()))
-                doc.Activate()
+        word = win32.gencache.EnsureDispatch("Word.Application")
 
-                # Save and Close
-                word.ActiveDocument.SaveAs(
-                    str(docx_file_path.resolve()),
-                    FileFormat=win32.constants.wdFormatXMLDocument,
-                )
-                doc.Close(False)
+        doc = word.Documents.Open(str(self._file_path.resolve()))
+        doc.Activate()
 
-            self._file_path = docx_file_path
+        word.ActiveDocument.SaveAs(
+            str(docx_file_path.resolve()),
+            FileFormat=win32.constants.wdFormatXMLDocument,
+        )
+        doc.Close(False)
 
-        document = Document(str(self._file_path.resolve()))
-        return document
+        return docx_file_path
 
-    def _merge_dfs(self, dfs: List[pd.DataFrame]) -> List[pd.DataFrame]:
-        """Merge dataframes that has the same header and drop duplicated lines
+    def _merge_dfs(self, dfs: Sequence[pd.DataFrame]) -> Sequence[pd.DataFrame]:
+        """Merge dataframes that has the same header and drop duplicated lines.
 
         Args:
-            dfs (List[pd.DataFrame]): list of dataframes from doc extraction
+            dfs (Sequence[pd.DataFrame]): Sequence of dataframes from doc extraction.
 
         Returns:
-            List[pd.DataFrame]: list of merged dataframes
+            Sequence[pd.DataFrame]: Sequence of merged dataframes.
         """
         headers = ["&".join(df.columns.tolist()) for df in dfs]
         header_df = pd.DataFrame(headers, columns=["headers"])
