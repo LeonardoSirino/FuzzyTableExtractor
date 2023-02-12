@@ -1,14 +1,14 @@
-from ..handlers.docx_handler import DocxHandler
-from ..matcher import Extractor, FieldOrientation
-
 from pathlib import Path
+
+from ..handlers.docx_handler import DocxHandler
+from ..matcher import FieldOrientation, Matcher
 
 
 def test_splited_tables():
     path = Path(r"src\fte\sample_docs\E001 - basic content.doc").resolve()
     handler = DocxHandler(path)
-    extractor = Extractor(handler)
-    df = extractor.extract_closest_table(["id", "name", "age"])
+    matcher = Matcher(handler)
+    df, _ = matcher.match_table(["id", "name", "age"])
     assert len(df) == 2
 
 
@@ -17,9 +17,9 @@ def test_header_rename():
 
     path = Path(r"src\fte\sample_docs\E003 - typos.docx").resolve()
     handler = DocxHandler(path)
-    extractor = Extractor(handler)
+    matcher = Matcher(handler)
 
-    df = extractor.extract_closest_table(columns)
+    df, _ = matcher.match_table(columns)
     assert df.columns.tolist() == columns
 
 
@@ -27,19 +27,19 @@ def test_extract_single_field():
     path = Path(r"src\fte\sample_docs\E005 - extract single field.docx").resolve()
 
     handler = DocxHandler(path)
-    extractor = Extractor(handler)
+    matcher = Matcher(handler)
 
-    name = extractor.extract_single_field("name", FieldOrientation.ROW)
+    name, _ = matcher.match_field("name", FieldOrientation.ROW)
 
     assert name == "Curitiba"
 
 
-def test_no_match_table():
+def test_low_score_match():
     path = Path(r"src\fte\sample_docs\E001 - basic content.docx").resolve()
 
     handler = DocxHandler(path)
-    extractor = Extractor(handler)
+    matcher = Matcher(handler)
 
-    df = extractor.extract_closest_table(["store", " game"], minimum_proximity_ratio=90)
+    _, score = matcher.match_table(["store", " game"])
 
-    assert df.empty
+    assert score < 90
