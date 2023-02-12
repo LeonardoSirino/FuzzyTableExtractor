@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 import pandas as pd
 
-from .matcher import FieldOrientation, Matcher
+from .matcher import FieldOrientation, Matcher, _optimal_sequence_matching
 
 
 class FakeHandler:

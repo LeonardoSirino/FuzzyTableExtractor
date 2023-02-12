@@ -1,6 +1,4 @@
-import re
-from collections.abc import Sequence
-from functools import lru_cache
+import functools
 
 import pandas as pd
 from docx.table import Table
@@ -26,7 +24,7 @@ def table_to_dataframe(table: Table) -> pd.DataFrame:
     return df
 
 
-@lru_cache(maxsize=None)
+@functools.cache
 def str_comparison(text_a: str, text_b: str) -> int:
     """Get the proximity ratio of 2 strings
 
@@ -47,6 +45,4 @@ def str_comparison(text_a: str, text_b: str) -> int:
     a = unidecode(a.lower())
     b = unidecode(b.lower())
 
-    ratio = fuzz.partial_ratio(a, b)
-
-    return ratio
+    return fuzz.partial_ratio(a, b)

@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional, Protocol
 
 import numpy as np
 import pandas as pd
+from scipy import optimize
 
 from .util import str_comparison
 
@@ -132,7 +133,9 @@ class Matcher:
         return best_match, max_ratio
 
 
-def sequence_proximity_ratio(ref_seq: Sequence[str], test_seq: Sequence[str]) -> int:
+def sequence_proximity_ratio(
+    ref_seq: Sequence[str], test_seq: Sequence[str], optimal_match: bool = True
+) -> int:
     """Calculates the proximity ratio for 2 sequences of strings.
 
     To calculate the proximity ratio, first the best association between terms in the test
@@ -143,12 +146,20 @@ def sequence_proximity_ratio(ref_seq: Sequence[str], test_seq: Sequence[str]) ->
     Args:
         ref_seq (Sequence[str]): Reference sequence of strings.
         test_seq (Sequence[str]): Test sequence of strings.
+        optimal_match (bool): Whether to find the optimal association between terms in the
+            reference and test sequences. The optimal algorithm solves the linear sum
+            assignment problem, which has O(n³) complexity, while the non optimal approach
+            uses a naive algorithm with O(n²) complexity. Defaults to True.
 
     Returns:
         int: Proximity ratio of the sequences.
     """
 
-    matches = _sequence_match(ref_seq, test_seq)
+    # TODO benchmark 2 approaches
+    if optimal_match:
+        matches = _optimal_sequence_matching(ref_seq, test_seq)
+    else:
+        matches = _naive_sequence_matching(ref_seq, test_seq)
 
     if len(matches) == 0:
         return 0
@@ -157,12 +168,10 @@ def sequence_proximity_ratio(ref_seq: Sequence[str], test_seq: Sequence[str]) ->
     return min(scores)
 
 
-def _sequence_match(
+def _naive_sequence_matching(
     ref_seq: Sequence[str], test_seq: Sequence[str]
 ) -> Sequence[_TableMatch]:
-    """Finds the best associotion between terms in 2 sequences of strings."""
-    # TODO the ideal algorithm is to find the association that has the biggest proximity
-    # ratio.
+    """Finds the association between terms in 2 sequences in a fast, but naive, way."""
 
     if len(test_seq) > len(ref_seq):
         return []
@@ -190,6 +199,27 @@ def _sequence_match(
     return matches
 
 
+def _optimal_sequence_matching(
+    ref_seq: Sequence[str], test_seq: Sequence[str]
+) -> Sequence[_TableMatch]:
+    """Finds the optimal association between terms in 2 sequences."""
+    cost_matrix = [[str_comparison(r, t) for t in test_seq] for r in ref_seq]
+
+    row_ind: Sequence[int]
+    col_ind: Sequence[int]
+    row_ind, col_ind = optimize.linear_sum_assignment(cost_matrix, maximize=True)
+
+    matches: Sequence[_TableMatch] = []
+    for r, c in zip(row_ind, col_ind):
+        matches.append(
+            _TableMatch(
+                search_term=test_seq[c], original_term=ref_seq[r], score=cost_matrix[r][c]
+            )
+        )
+
+    return matches
+
+
 def get_columns_fuzzy(
     df: pd.DataFrame, columns: Sequence[str], threshold: int = 0
 ) -> pd.DataFrame:
@@ -206,7 +236,7 @@ def get_columns_fuzzy(
         pd.DataFrame: Dataframe with selected columns. Note that the columns in the
             dataframe will be renamed to match values inputed in the function.
     """
-    association = _sequence_match(df.columns.to_list(), columns)
+    association = _naive_sequence_matching(df.columns.to_list(), columns)
     association = [x for x in association if x.score > threshold]
 
     original = [x.original_term for x in association]
