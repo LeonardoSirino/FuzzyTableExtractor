@@ -1,12 +1,9 @@
 import functools
 import os
-import re
 from collections import defaultdict
 from collections.abc import MutableSequence, Sequence
 from pathlib import Path
-from typing import List
 
-import numpy as np
 import pandas as pd
 import win32com.client as win32
 from docx.api import Document
@@ -37,6 +34,15 @@ class DocxHandler:
         self._temp_folder = temp_folder
 
     def get_mapping(self, orientation: FieldOrientation) -> dict[str, Sequence[str]]:
+        """Retrieves the mapping of values in the document.
+
+        Args:
+            orientation (FieldOrientation): Which direction to get the mapping.
+
+        Returns:
+            dict[str, Sequence[str]]: A mapping of key names to all contents in the
+                document.
+        """
         return self._mapping[orientation]
 
     @functools.cached_property
@@ -84,6 +90,11 @@ class DocxHandler:
 
     @functools.cache
     def get_tables(self) -> Sequence[pd.DataFrame]:
+        """Gets all tables in the document.
+
+        Returns:
+            Sequence[pd.DataFrame]: Sequence of tables in the document.
+        """
         tables = self._docx_tables
 
         # Getting subset of tables that has a merged header
@@ -172,10 +183,15 @@ class DocxHandler:
 
         return Document(str(file_path.resolve()))
 
+    @property
+    def _docx_file_path(self) -> Path:
+        if self._file_path.suffix == ".docx":
+            return self._file_path
+
+        return self._temp_folder / f"_aux_{self._file_path.stem}_file.docx"
+
     def _create_docx_file(self) -> Path:
-        file_name = self._file_path.stem
-        docx_file_name = f"_aux_{file_name}_file.docx"
-        docx_file_path = self._temp_folder / docx_file_name
+        docx_file_path = self._docx_file_path
 
         if os.path.exists(docx_file_path):
             return docx_file_path

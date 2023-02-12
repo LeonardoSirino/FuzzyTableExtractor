@@ -59,9 +59,6 @@ class Matcher:
             rename_columns (bool, optional): Whether to rename columns to match search
                 headers. Defaults to True.
 
-        Raises:
-            NoValidMatch: If no valid match in found.
-
         Returns:
             tuple[pd.DataFrame, int]: Tuple with:
                 - Table with best match for search_headers;
@@ -95,6 +92,23 @@ class Matcher:
         title_regex: Sequence[str] = [""],
         return_multiple: bool = False,
     ) -> tuple[str, int]:
+        """Match a field in the handler mapping.
+
+        Args:
+            field (str): Field to search in the handler mapping. The field is key name.
+            orientation (FieldOrientation): Which direction to retrieve the content.
+            regex (Sequence[str], optional): List of regex patterns that the content must
+                match to be valid. Defaults to [""].
+            title_regex (Sequence[str], optional): List of regex patterns that the key
+                name must match to be valid. Defaults to [""].
+            return_multiple (bool, optional): Whether to return multiple matches if they
+                have the same proximity ratio. If set to True, the contents that have the
+                highest ratio will be combined into a single string, delimited by commas,
+                and returned as the match. Defaults to False.
+
+        Returns:
+            tuple[str, int]: The content with highest proximity ratio and the value of this ratio.
+        """
 
         map_ = self._handler.get_mapping(orientation=orientation)
 
@@ -108,7 +122,7 @@ class Matcher:
             map_ = {k: v for k, v in map_.items() if v}
 
         if not map_:
-            raise NoValidMatchError
+            return "", 0
 
         df = (
             pd.DataFrame(data=map_.items(), columns=["key", "value"])
@@ -128,7 +142,7 @@ class Matcher:
             else:
                 best_match = df["value"].values[0]
         except IndexError:
-            raise NoValidMatchError
+            return "", 0
 
         return best_match, max_ratio
 
