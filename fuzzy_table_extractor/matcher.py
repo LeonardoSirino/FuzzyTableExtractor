@@ -42,9 +42,10 @@ class Matcher:
 
     def match_table(
         self,
-        search_headers: Sequence[str],
+        search_headers: MutableSequence[str],
         validation_funtion: Optional[Callable[[Sequence[Any]], bool]] = None,
         rename_columns: bool = True,
+        allow_duplicated_columns: bool = False,
     ) -> tuple[pd.DataFrame, int]:
         """Matches a table supplied by the handler.
 
@@ -58,6 +59,9 @@ class Matcher:
                 validation will be applied.
             rename_columns (bool, optional): Whether to rename columns to match search
                 headers. Defaults to True.
+            allow_duplicated_columns (bool, optional): Whether to allow returning of
+                duplicated columns in the result dataframe if there are multiple matches
+                with the same score. Defaults to False.
 
         Returns:
             tuple[pd.DataFrame, int]: Tuple with:
@@ -80,7 +84,11 @@ class Matcher:
 
         df = tables[np.argmax(ratios)]
         if rename_columns:
-            df = get_columns_fuzzy(df, search_headers)
+            df = get_columns_fuzzy(
+                df=df,
+                columns=search_headers,
+                allow_duplicated_columns=allow_duplicated_columns,
+            )
 
         return df, max(ratios)
 
@@ -235,7 +243,10 @@ def _optimal_sequence_matching(
 
 
 def get_columns_fuzzy(
-    df: pd.DataFrame, columns: Sequence[str], threshold: int = 0
+    df: pd.DataFrame,
+    columns: MutableSequence[str],
+    threshold: int = 0,
+    allow_duplicated_columns: bool = False,
 ) -> pd.DataFrame:
     """Gets columns in a dataframe using fuzzy matching.
 
@@ -245,6 +256,9 @@ def get_columns_fuzzy(
         threshold (int, optional): Minimum proximity ratio between search and dataframe
             columns to consider a valid match. Defaults to 0, which means that any match
             is valid.
+        allow_duplicated_columns (bool, optional): Whether to allow returning of
+            duplicated columns in the result dataframe if there are multiple matches
+            with the same score. Defaults to False.
 
     Raises:
         NoValidMatch: If the proximity ratio between the search columns and the columns in
@@ -267,7 +281,7 @@ def get_columns_fuzzy(
     rename_dict = {x.original_term: x.search_term for x in association}
     df_.rename(columns=rename_dict, inplace=True)
 
-    if df_.columns.duplicated().any():
+    if df_.columns.duplicated().any() and not allow_duplicated_columns:
         df_ = df_.loc[:, ~df_.columns.duplicated()]
 
     # ensure that columns will return in the supplied columns order.
