@@ -48,6 +48,10 @@ class DocxHandler:
             )
             self._file_path = Path(destination_path)
 
+    @property
+    def docx_file_path(self) -> str:
+        return str(self._file_path.resolve())
+
     def get_mapping(self, orientation: FieldOrientation) -> dict[str, Sequence[str]]:
         """Retrieves the mapping of values in the document.
 
@@ -225,6 +229,10 @@ class DocxXMLHandler:
             )
             self._file_path = destination_path
 
+    @property
+    def docx_file_path(self) -> str:
+        return self._file_path
+
     @functools.cache
     def get_tables(self) -> Sequence[pd.DataFrame]:
         with zipfile.ZipFile(self._file_path) as docx:
@@ -239,7 +247,7 @@ class DocxXMLHandler:
                 )
 
             df = pd.DataFrame(data)
-            df.columns = df.iloc[0]
+            df.columns = df.iloc[0].to_numpy(dtype=str)
             df = df[1:]
 
             tables.append(df)
@@ -282,6 +290,7 @@ def _table_to_records(df: pd.DataFrame) -> Sequence[Sequence[str]]:
 
 
 def _get_combined_text(cell: Element) -> str:
+    # TODO handle merged cells
     fragments: MutableSequence[str] = []
     q = deque(cell.findall("./*"))
     while q:
