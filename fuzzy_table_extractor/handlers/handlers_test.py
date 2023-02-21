@@ -5,10 +5,9 @@ import pandas as pd
 import pytest
 
 from ..matcher import FieldOrientation
-from .docx_handler import DocxHandler
-from .docx_xml_handler import DocxXMLHandler
+from .docx_handler import DocxHandler, DocxXMLHandler
 
-BASIC_DOC_PATH = r"src\fte\sample_docs\E001 - basic content.docx"
+_BASIC_DOC_PATH = r"src\fte\sample_docs\E001 - basic content.docx"
 
 
 class Handler(Protocol):
@@ -19,7 +18,7 @@ class Handler(Protocol):
         ...
 
 
-_HANDLERS_TO_TEST = [DocxHandler(Path(BASIC_DOC_PATH)), DocxXMLHandler(BASIC_DOC_PATH)]
+_HANDLERS_TO_TEST = [DocxHandler(Path(_BASIC_DOC_PATH)), DocxXMLHandler(_BASIC_DOC_PATH)]
 
 
 @pytest.mark.parametrize("handler", _HANDLERS_TO_TEST)
@@ -54,8 +53,15 @@ def test_docx_handler_assert_mapping_values(handler: Handler):
     ]
 
 
-def test_doc_conversion():
-    file_path = r"src\fte\sample_docs\E001 - basic content.doc"
+_DOC_FILE_PATH = r"src\fte\sample_docs\E001 - basic content.doc"
 
-    handler = DocxHandler(Path(file_path))
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        DocxHandler(Path(_DOC_FILE_PATH)),
+        DocxXMLHandler(str(Path(_DOC_FILE_PATH).resolve())),
+    ],
+)
+def test_doc_conversion(handler: Handler):
     assert len(handler.get_tables()) == 2

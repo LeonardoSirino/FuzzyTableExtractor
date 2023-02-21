@@ -1,9 +1,14 @@
 import functools
 import os
-from collections import defaultdict
+import xml.etree.ElementTree
+import zipfile
+from collections import defaultdict, deque
 from collections.abc import MutableSequence, Sequence
 from pathlib import Path
+from typing import MutableSequence, Sequence
+from xml.etree.ElementTree import Element
 
+import numpy as np
 import pandas as pd
 import win32com.client as win32
 from docx.api import Document
@@ -177,43 +182,18 @@ class DocxHandler:
         Returns:
             Document: Word document object.
         """
-        file_path = self._file_path
-        if file_path.suffix[1:] == "doc":
-            file_path = self._create_docx_file()
+        file_path = str(self._file_path.resolve())
+        if self._file_path.suffix[1:] == "doc":
+            destination_path = _path_to_docx_file(
+                file_path, str(self._temp_folder.resolve())
+            )
+            _doc_to_docx(
+                doc_file_path=file_path,
+                docx_file_path=destination_path,
+            )
+            file_path = destination_path
 
-        return Document(str(file_path.resolve()))
-
-    @property
-    def _docx_file_path(self) -> Path:
-        if self._file_path.suffix == ".docx":
-            return self._file_path
-
-        return self._temp_folder / f"_aux_{self._file_path.stem}_file.docx"
-
-    def _create_docx_file(self) -> Path:
-        docx_file_path = self._docx_file_path
-
-        if os.path.exists(docx_file_path):
-            return docx_file_path
-
-        self._temp_folder.mkdir(exist_ok=True, parents=True)
-
-        # NOTE
-        # If errors are found, do this
-        # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
-
-        word = win32.gencache.EnsureDispatch("Word.Application")
-
-        doc = word.Documents.Open(str(self._file_path.resolve()))
-        doc.Activate()
-
-        word.ActiveDocument.SaveAs(
-            str(docx_file_path.resolve()),
-            FileFormat=win32.constants.wdFormatXMLDocument,
-        )
-        doc.Close(False)
-
-        return docx_file_path
+        return Document(file_path)
 
     def _merge_dfs(self, dfs: Sequence[pd.DataFrame]) -> Sequence[pd.DataFrame]:
         """Merge dataframes that has the same header and drop duplicated lines.
@@ -239,3 +219,145 @@ class DocxHandler:
             merged_dfs.append(merged)
 
         return merged_dfs
+
+
+_WORD_NAMESPACE = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_TEXT = _WORD_NAMESPACE + "t"
+_TABLE = _WORD_NAMESPACE + "tbl"
+_ROW = _WORD_NAMESPACE + "tr"
+_CELL = _WORD_NAMESPACE + "tc"
+
+
+class DocxXMLHandler:
+    def __init__(
+        self, file_path: str, temp_folder: str = str(Path("temp").resolve())
+    ) -> None:
+        """Creates a new DocxXMLHandler instance.
+
+        This handler does not rely on Word to get information from the files, resulting in
+        faster extraction and avoid the program to get stuck in an API call.
+
+        Args:
+            file_path (str): File path to be handled.
+            temp_folder (str, optional): Path to temporary folder where docx files will
+                be created when the supplied file has .doc extension. Defaults to 'temp'.
+        """
+        self._file_path = file_path
+
+        if Path(file_path).suffix[1:] == "doc":
+            destination_path = _path_to_docx_file(file_path, temp_folder)
+            _doc_to_docx(
+                doc_file_path=file_path,
+                docx_file_path=destination_path,
+            )
+            self._file_path = destination_path
+
+    @functools.cache
+    def get_tables(self) -> Sequence[pd.DataFrame]:
+        with zipfile.ZipFile(self._file_path) as docx:
+            tree = xml.etree.ElementTree.XML(docx.read("word/document.xml"))
+
+        tables: MutableSequence[pd.DataFrame] = []
+        for table in tree.iter(_TABLE):
+            data: MutableSequence[MutableSequence[str]] = []
+            for row in table.findall(f"./{_ROW}"):
+                data.append(
+                    [_get_combined_text(cell) for cell in row.findall(f"./{_CELL}")]
+                )
+
+            df = pd.DataFrame(data)
+            df.columns = df.iloc[0]
+            df = df[1:]
+
+            tables.append(df)
+
+        return tables
+
+    @functools.cached_property
+    def _mapping(self) -> dict[FieldOrientation, dict[str, Sequence[str]]]:
+        mapping: dict[FieldOrientation, dict[str, MutableSequence[str]]] = {
+            FieldOrientation.ROW: defaultdict(list),
+            FieldOrientation.COLUMN: defaultdict(list),
+        }
+        for df in self.get_tables():
+            records = _table_to_records(df)
+            for row in records:
+                for i, key in enumerate(row[:-1]):
+                    mapping[FieldOrientation.ROW][key].append(row[i + 1])
+
+            for col in np.array(records).T.tolist():
+                for i, key in enumerate(col[:-1]):
+                    mapping[FieldOrientation.COLUMN][key].append(col[i + 1])
+
+        return mapping
+
+    def get_mapping(self, orientation: FieldOrientation) -> dict[str, Sequence[str]]:
+        """Retrieves the mapping of values in the document.
+
+        Args:
+            orientation (FieldOrientation): Which direction to get the mapping.
+
+        Returns:
+            dict[str, Sequence[str]]: A mapping of key names to all contents in the
+                document.
+        """
+        return self._mapping[orientation]
+
+
+def _table_to_records(df: pd.DataFrame) -> Sequence[Sequence[str]]:
+    return [df.columns.to_numpy(dtype=str).tolist()] + df.to_numpy(dtype=str).tolist()
+
+
+def _get_combined_text(cell: Element) -> str:
+    fragments: MutableSequence[str] = []
+    q = deque(cell.findall("./*"))
+    while q:
+        cell = q.popleft()
+        if cell.tag == _TABLE:
+            continue
+
+        if cell.tag == _TEXT:
+            fragments.append(str(cell.text))
+
+        q.extendleft(cell.findall("./*")[::-1])
+
+    return "\n".join(fragments)
+
+
+def _path_to_docx_file(doc_file_path: str, folder: str) -> str:
+    """Creates a standard name for temporary .docx files."""
+    folder_path = Path(folder)
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    original_file_name = Path(doc_file_path).stem
+    destination_path = folder_path / f"_aux_{original_file_name}_file.docx"
+
+    return str(destination_path.resolve())
+
+
+def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
+    """Converts a .doc file to a .docx file.
+
+    If a document in the docx_file_path already exists, this function does nothing.
+
+    Args:
+        doc_file_path (str): Path to the .doc file that will be converted.
+        docx_file_path (str): Path where the new file will be created.
+    """
+    if os.path.exists(docx_file_path):
+        return
+
+    # NOTE
+    # If errors are found, do this
+    # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
+
+    word = win32.gencache.EnsureDispatch("Word.Application")
+
+    doc = word.Documents.Open(doc_file_path)
+    doc.Activate()
+
+    word.ActiveDocument.SaveAs(
+        docx_file_path,
+        FileFormat=win32.constants.wdFormatXMLDocument,
+    )
+    doc.Close(False)
