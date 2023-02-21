@@ -36,7 +36,17 @@ class DocxHandler:
                 be created when the supplied file has .doc extension. Defaults to 'temp'.
         """
         self._file_path = file_path
-        self._temp_folder = temp_folder
+
+        str_file_path = str(file_path.resolve())
+        if Path(file_path).suffix[1:] == "doc":
+            destination_path = _path_to_docx_file(
+                str_file_path, str(temp_folder.resolve())
+            )
+            _doc_to_docx(
+                doc_file_path=str_file_path,
+                docx_file_path=destination_path,
+            )
+            self._file_path = Path(destination_path)
 
     def get_mapping(self, orientation: FieldOrientation) -> dict[str, Sequence[str]]:
         """Retrieves the mapping of values in the document.
@@ -146,9 +156,7 @@ class DocxHandler:
             df = pd.DataFrame(columns=header, data=aux)
             dfs.append(df)
 
-        dfs = self._merge_dfs(dfs)
-
-        return dfs
+        return _merge_tables(dfs)
 
     @functools.cached_property
     def _docx_tables(self) -> Sequence[Table]:
@@ -182,43 +190,7 @@ class DocxHandler:
         Returns:
             Document: Word document object.
         """
-        file_path = str(self._file_path.resolve())
-        if self._file_path.suffix[1:] == "doc":
-            destination_path = _path_to_docx_file(
-                file_path, str(self._temp_folder.resolve())
-            )
-            _doc_to_docx(
-                doc_file_path=file_path,
-                docx_file_path=destination_path,
-            )
-            file_path = destination_path
-
-        return Document(file_path)
-
-    def _merge_dfs(self, dfs: Sequence[pd.DataFrame]) -> Sequence[pd.DataFrame]:
-        """Merge dataframes that has the same header and drop duplicated lines.
-
-        Args:
-            dfs (Sequence[pd.DataFrame]): Sequence of dataframes from doc extraction.
-
-        Returns:
-            Sequence[pd.DataFrame]: Sequence of merged dataframes.
-        """
-        headers = ["&".join(df.columns.tolist()) for df in dfs]
-        header_df = pd.DataFrame(headers, columns=["headers"])
-        header_groups = header_df.groupby(by="headers")
-
-        merged_dfs = []
-        for _, df in header_groups:
-            index = df.index.tolist()
-
-            group = [dfs[i] for i in index]
-            merged = pd.concat(group)
-            merged.drop_duplicates(inplace=True)
-            merged.reset_index(drop=True, inplace=True)
-            merged_dfs.append(merged)
-
-        return merged_dfs
+        return Document(str(self._file_path.resolve()))
 
 
 _WORD_NAMESPACE = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -226,6 +198,7 @@ _TEXT = _WORD_NAMESPACE + "t"
 _TABLE = _WORD_NAMESPACE + "tbl"
 _ROW = _WORD_NAMESPACE + "tr"
 _CELL = _WORD_NAMESPACE + "tc"
+_PARAGRAPH = _WORD_NAMESPACE + "p"
 
 
 class DocxXMLHandler:
@@ -271,7 +244,7 @@ class DocxXMLHandler:
 
             tables.append(df)
 
-        return tables
+        return _merge_tables(tables)
 
     @functools.cached_property
     def _mapping(self) -> dict[FieldOrientation, dict[str, Sequence[str]]]:
@@ -316,12 +289,16 @@ def _get_combined_text(cell: Element) -> str:
         if cell.tag == _TABLE:
             continue
 
-        if cell.tag == _TEXT:
-            fragments.append(str(cell.text))
+        if cell.tag == _PARAGRAPH:
+            if fragments:
+                fragments.append("\n")
+        elif cell.tag == _TEXT:
+            if frag := str(cell.text):
+                fragments.append(frag)
 
         q.extendleft(cell.findall("./*")[::-1])
 
-    return "\n".join(fragments)
+    return "".join(fragments)
 
 
 def _path_to_docx_file(doc_file_path: str, folder: str) -> str:
@@ -333,6 +310,23 @@ def _path_to_docx_file(doc_file_path: str, folder: str) -> str:
     destination_path = folder_path / f"_aux_{original_file_name}_file.docx"
 
     return str(destination_path.resolve())
+
+
+def _merge_tables(tables: Sequence[pd.DataFrame]) -> Sequence[pd.DataFrame]:
+    groups: dict[str, MutableSequence[pd.DataFrame]] = defaultdict(list)
+    for df in tables:
+        cols = df.columns.to_numpy(dtype=str).tolist()
+        cols.sort()
+        groups["".join(cols)].append(df)
+
+    merged_tables: Sequence[pd.DataFrame] = []
+    for dfs in groups.values():
+        merged = pd.concat(dfs)
+        merged.drop_duplicates(inplace=True)
+        merged.reset_index(drop=True, inplace=True)
+        merged_tables.append(merged)
+
+    return merged_tables
 
 
 def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
