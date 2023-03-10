@@ -262,13 +262,18 @@ def get_columns_fuzzy(
 
     Raises:
         NoValidMatch: If the proximity ratio between the search columns and the columns in
-            the dataframe is smaller than the threshold.
+            the dataframe is smaller than the threshold. This error is also raised if the
+            number of columns requested is greater than the number of columns in the
+            dataframe.
 
     Returns:
         pd.DataFrame: Dataframe with selected columns. Note that the columns in the
             dataframe will be renamed to match values inputed in the function.
     """
     df_ = df.copy()
+
+    if len(df.columns) < len(columns):
+        raise NoValidMatchError
 
     association = _optimal_sequence_matching(df_.columns.to_list(), columns)
     min_ratio = min([m.score for m in association])
