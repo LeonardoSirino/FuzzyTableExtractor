@@ -1,24 +1,49 @@
 import functools
+from collections.abc import Sequence
+from typing import Protocol
 
 import pandas as pd
-from docx.table import Table
 from fuzzywuzzy import fuzz
 from unidecode import unidecode
 
 
-def table_to_dataframe(table: Table) -> pd.DataFrame:
-    data = []
-    headers = []
-    for i, row in enumerate(table.rows):
-        row = [cell.text for cell in row.cells]
+class _Cell(Protocol):
+    text: str
 
-        if i == 0:
-            headers = row
-        else:
-            data.append(row)
 
-    # TODO sometimes the lenght of headers is different from the lenght of data
-    # Check these cases and find a way to handle this situation
+class _Row(Protocol):
+    cells: Sequence[_Cell]
+
+
+class _Table(Protocol):
+    rows: Sequence[_Row]
+
+
+def table_to_dataframe(table: _Table) -> pd.DataFrame:
+    """Converts a docs Table to a pandas Dataframe.
+
+    If headers is greater than the data, the extra column names will be removed. If there
+    are less column names, `unnamed col` names will be created to fill as needed.
+
+    Args:
+        table (_Table): Table object found in the .docx document.
+
+    Returns:
+        pd.DataFrame: Dataframe holding the data in the table.
+    """
+    headers = [cell.text for cell in table.rows[0].cells]
+    if len(table.rows) == 1:
+        return pd.DataFrame(columns=headers)
+
+    data = [[cell.text for cell in row.cells] for row in table.rows[1:]]
+    max_size = max(len(row) for row in data)
+
+    if len(headers) > max_size:
+        headers = headers[:max_size]
+    elif max_size > len(headers):
+        size_diff = max_size - len(headers)
+        headers += [f"unnamed col {i}" for i in range(size_diff)]
+
     df = pd.DataFrame(columns=headers, data=data)
 
     return df

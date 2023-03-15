@@ -119,7 +119,7 @@ class DocxHandler:
         # Getting subset of tables that has a merged header
         splited_tables = []
         aux_table = []
-        for k, table in enumerate(tables):
+        for _, table in enumerate(tables):
             for row in table.rows:
                 values = [x.text for x in row.cells]
                 if len(set(values)) == 1:
@@ -350,7 +350,7 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
     if os.path.exists(docx_file_path):
         return
 
-    # NOTE
+    # TODO automate this cleaning if an Excepction rises
     # If errors are found, do this
     # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
 
