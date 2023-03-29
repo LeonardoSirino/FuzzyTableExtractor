@@ -7,7 +7,6 @@ from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import MutableSequence, Sequence
 from xml.etree.ElementTree import Element
-import shutil
 
 import numpy as np
 import pandas as pd
@@ -40,8 +39,9 @@ class DocxHandler:
 
         str_file_path = str(file_path.resolve())
         if Path(file_path).suffix[1:] == "doc":
+            last_modified = Path(file_path).stat().st_mtime
             destination_path = _path_to_docx_file(
-                str_file_path, str(temp_folder.resolve())
+                f"{str_file_path}_{last_modified}", str(temp_folder.resolve())
             )
             _doc_to_docx(
                 doc_file_path=str_file_path,
@@ -223,7 +223,10 @@ class DocxXMLHandler:
         self._file_path = file_path
 
         if Path(file_path).suffix[1:] == "doc":
-            destination_path = _path_to_docx_file(file_path, temp_folder)
+            last_modified = Path(file_path).stat().st_mtime
+            destination_path = _path_to_docx_file(
+                f"{file_path}_{last_modified}", temp_folder
+            )
             _doc_to_docx(
                 doc_file_path=file_path,
                 docx_file_path=destination_path,
