@@ -7,6 +7,7 @@ from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import MutableSequence, Sequence
 from xml.etree.ElementTree import Element
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -350,9 +351,10 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
     if os.path.exists(docx_file_path):
         return
 
-    # TODO automate this cleaning if an Excepction rises
-    # If errors are found, do this
-    # clear contents of C:\Users\<username>\AppData\Local\Temp\gen_py
+    try:
+        shutil.rmtree(_get_python_temp_appdata_folder())
+    except Exception:
+        pass
 
     word = win32.gencache.EnsureDispatch("Word.Application")
 
@@ -364,3 +366,7 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
         FileFormat=win32.constants.wdFormatXMLDocument,
     )
     doc.Close(False)
+
+
+def _get_python_temp_appdata_folder() -> str:
+    return f'{os.getenv("LOCALAPPDATA")}\Local\Temp'
