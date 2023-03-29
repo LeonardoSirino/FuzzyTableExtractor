@@ -351,11 +351,6 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
     if os.path.exists(docx_file_path):
         return
 
-    try:
-        shutil.rmtree(_get_python_temp_appdata_folder())
-    except Exception:
-        pass
-
     word = win32.gencache.EnsureDispatch("Word.Application")
 
     doc = word.Documents.Open(doc_file_path)
@@ -366,7 +361,3 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
         FileFormat=win32.constants.wdFormatXMLDocument,
     )
     doc.Close(False)
-
-
-def _get_python_temp_appdata_folder() -> str:
-    return f'{os.getenv("LOCALAPPDATA")}\Temp\gen_py'
