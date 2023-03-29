@@ -369,4 +369,4 @@ def _doc_to_docx(doc_file_path: str, docx_file_path: str) -> None:
 
 
 def _get_python_temp_appdata_folder() -> str:
-    return f'{os.getenv("LOCALAPPDATA")}\Local\Temp'
+    return f'{os.getenv("LOCALAPPDATA")}\Temp\gen_py'
