@@ -316,7 +316,7 @@ def _path_to_docx_file(doc_file_path: str, folder: str) -> str:
     folder_path.mkdir(parents=True, exist_ok=True)
 
     original_file_name = Path(doc_file_path).stem
-    destination_path = folder_path / f"_aux_{original_file_name}_file.docx"
+    destination_path = folder_path / f"x_{original_file_name}.docx"
 
     return str(destination_path.resolve())
 
