@@ -39,9 +39,11 @@ class DocxHandler:
 
         str_file_path = str(file_path.resolve())
         if Path(file_path).suffix[1:] == "doc":
-            last_modified = Path(file_path).stat().st_mtime
+            last_modified = int(Path(file_path).stat().st_mtime)
             destination_path = _path_to_docx_file(
-                f"{str_file_path}_{last_modified}", str(temp_folder.resolve())
+                doc_file_path=str_file_path,
+                timestamp=last_modified,
+                folder=str(temp_folder.resolve()),
             )
             _doc_to_docx(
                 doc_file_path=str_file_path,
@@ -223,9 +225,11 @@ class DocxXMLHandler:
         self._file_path = file_path
 
         if Path(file_path).suffix[1:] == "doc":
-            last_modified = Path(file_path).stat().st_mtime
+            last_modified = int(Path(file_path).stat().st_mtime)
             destination_path = _path_to_docx_file(
-                f"{file_path}_{last_modified}", temp_folder
+                doc_file_path=file_path,
+                timestamp=last_modified,
+                folder=temp_folder,
             )
             _doc_to_docx(
                 doc_file_path=file_path,
@@ -314,13 +318,13 @@ def _get_combined_text(cell: Element) -> str:
     return "".join(fragments)
 
 
-def _path_to_docx_file(doc_file_path: str, folder: str) -> str:
+def _path_to_docx_file(doc_file_path: str, timestamp: int, folder: str) -> str:
     """Creates a standard name for temporary .docx files."""
     folder_path = Path(folder)
     folder_path.mkdir(parents=True, exist_ok=True)
 
     original_file_name = Path(doc_file_path).stem
-    destination_path = folder_path / f"x_{original_file_name}.docx"
+    destination_path = folder_path / f"x_{original_file_name}_{timestamp}.docx"
 
     return str(destination_path.resolve())
 
